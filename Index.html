@@ -1,0 +1,1576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ЧУЖОЙ & THE MIRROR // YOTS</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap');
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #000; overflow: hidden; font-family: 'Share Tech Mono', monospace; color: #00ff41; }
+#three-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; }
+.scanlines { position: fixed; inset: 0; z-index: 1; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,65,0.015) 2px, rgba(0,255,65,0.015) 4px); pointer-events: none; }
+
+/* Chat layer */
+.chat-layer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* Messages area */
+.chat-messages {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 80px;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  padding: 100px 20px 20px;
+  pointer-events: all;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,255,65,0.15) transparent;
+}
+
+.chat-input-area {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 20px 28px;
+  pointer-events: all;
+  display: flex;
+  justify-content: center;
+  background: transparent;
+}
+
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb { background: rgba(0,255,65,0.15); border-radius: 2px; }
+
+/* Message bubble */
+.msg {
+  max-width: min(600px, 85vw);
+  padding: 14px 18px;
+  border-radius: 8px;
+  background: rgba(0, 255, 65, 0.04);
+  border: 1px solid rgba(0, 255, 65, 0.08);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: msgFade 0.4s ease;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  align-self: flex-start;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.msg::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(0, 255, 65, 0.04), transparent);
+  transition: left 0.6s ease;
+}
+
+.msg:hover::before {
+  left: 100%;
+}
+
+.msg:hover {
+  border-color: rgba(0, 255, 65, 0.2);
+  box-shadow: 0 0 12px rgba(0, 255, 65, 0.08), inset 0 0 12px rgba(0, 255, 65, 0.03);
+}
+
+.msg.visitor-msg {
+  align-self: flex-start;
+  border-color: rgba(0, 255, 65, 0.06);
+  background: rgba(0, 255, 65, 0.02);
+}
+
+.msg.yots-msg {
+  align-self: flex-start;
+  border-color: rgba(0, 255, 65, 0.12);
+  background: rgba(0, 255, 65, 0.06);
+}
+
+.msg.yots-msg:hover {
+  border-color: rgba(0, 255, 65, 0.25);
+  background: rgba(0, 255, 65, 0.09);
+  box-shadow: 0 0 18px rgba(0, 255, 65, 0.1), inset 0 0 15px rgba(0, 255, 65, 0.04);
+}
+
+@keyframes msgFade {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.msg-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.msg-tag {
+  font-size: 0.5rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 2px;
+}
+
+.msg-tag.visitor {
+  color: rgba(0,255,65,0.5);
+  border: 1px solid rgba(0,255,65,0.12);
+}
+
+.msg-tag.yots {
+  color: #00ff41;
+  border: 1px solid rgba(0,255,65,0.25);
+  text-shadow: 0 0 8px rgba(0,255,65,0.3);
+}
+
+.msg-time {
+  font-size: 0.45rem;
+  color: rgba(0,255,65,0.25);
+  letter-spacing: 0.08em;
+}
+
+.msg-text {
+  font-size: 0.75rem;
+  line-height: 1.7;
+  letter-spacing: 0.03em;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.msg.visitor-msg .msg-text {
+  color: rgba(0,255,65,0.45);
+}
+
+.msg.yots-msg .msg-text {
+  color: #00ff41;
+  text-shadow: 0 0 8px rgba(0,255,65,0.2);
+}
+
+/* Typing indicator */
+.typing-indicator {
+  display: none;
+  padding: 12px 16px;
+  max-width: 120px;
+  background: rgba(0, 255, 65, 0.04);
+  border: 1px solid rgba(0, 255, 65, 0.1);
+  backdrop-filter: blur(8px);
+  border-radius: 8px;
+  margin-top: 16px;
+}
+
+.typing-indicator.active { display: block; }
+
+.typing-dots {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.typing-dots span {
+  width: 4px;
+  height: 4px;
+  background: #00ff41;
+  border-radius: 50%;
+  animation: typePulse 1.2s ease-in-out infinite;
+}
+
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typePulse {
+  0%, 60%, 100% { opacity: 0.2; transform: scale(0.8); }
+  30% { opacity: 1; transform: scale(1.2); }
+}
+
+/* Message spacing */
+.msg + .msg {
+  margin-top: 16px;
+}
+
+.input-wrapper {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 600px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(0,255,65,0.15);
+  border-radius: 8px;
+  padding: 0 4px 0 16px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: border-color 0.3s ease;
+  overflow: hidden;
+}
+
+.input-wrapper:focus-within {
+  border-color: rgba(0,255,65,0.35);
+  box-shadow: 0 0 15px rgba(0,255,65,0.06);
+}
+
+.chat-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #00ff41;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 12px 0;
+  caret-color: #00ff41;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+.chat-input::placeholder {
+  color: rgba(0,255,65,0.2);
+  letter-spacing: 0.08em;
+  font-size: 11px;
+}
+
+.send-btn {
+  background: transparent;
+  border: none;
+  color: rgba(0,255,65,0.4);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.12em;
+  padding: 8px 14px;
+  margin: 0;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.send-btn:hover {
+  color: #00ff41;
+}
+
+/* Main site link - REMOVED */
+.site-link-removed {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 21;
+  font-size: 0.55rem;
+  letter-spacing: 0.14em;
+  color: #00ff41;
+  text-decoration: none;
+  border: 1px solid rgba(0,255,65,0.25);
+  padding: 8px 16px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  pointer-events: all;
+  box-shadow: 0 0 8px rgba(0,255,65,0.1);
+  animation: linkGlow 3s ease-in-out infinite;
+}
+
+@keyframes linkGlow {
+  0%, 100% { box-shadow: 0 0 8px rgba(0,255,65,0.1); }
+  50% { box-shadow: 0 0 16px rgba(0,255,65,0.25), 0 0 30px rgba(0,255,65,0.08); }
+}
+
+.site-link:hover {
+  color: #fff;
+  border-color: #00ff41;
+  background: rgba(0,255,65,0.1);
+  box-shadow: 0 0 20px rgba(0,255,65,0.3), 0 0 40px rgba(0,255,65,0.1);
+}
+
+/* Terminal title */
+.terminal-title {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  padding: 16px 16px 50px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.85) 40%, rgba(0,0,0,0.5) 70%, transparent 100%);
+  pointer-events: none;
+}
+
+.terminal-title span {
+  font-family: 'VT323', monospace;
+  font-size: 1rem;
+  color: rgba(0,255,65,0.4);
+  letter-spacing: 0.12em;
+}
+
+.terminal-title .blink {
+  animation: cursorBlink 1s step-end infinite;
+}
+
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@media (max-width: 768px) {
+  .chat-messages { padding: 80px 12px 12px; }
+  .msg { max-width: 90vw; }
+  .chat-input { font-size: 11px; padding: 10px 0; }
+  .terminal-title span { font-size: 0.8rem; }
+  .input-wrapper { padding: 0 4px 0 12px; }
+  .send-btn { padding: 6px 10px; font-size: 0.5rem; }
+  .chat-input-area { padding: 10px 12px 16px; }
+  .chat-messages { bottom: 60px; }
+}
+
+/* ENTRY SCREEN */
+.entry-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.entry-screen {
+  transition: opacity 1s ease;
+}
+
+.entry-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+
+.entry-btn {
+  width: 260px;
+  padding: 12px 40px;
+  border: none;
+  border-radius: 8px;
+  font-family: 'VT323', monospace;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  position: relative;
+  overflow: hidden;
+  background: rgba(0,0,0,0.08);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.entry-btn::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(0,255,65,0.06), transparent);
+  transition: left 0.5s ease;
+}
+
+.entry-btn:hover::before { left: 100%; }
+
+.entry-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.03) 2px, rgba(255,255,255,0.03) 4px);
+  opacity: 1;
+  pointer-events: none;
+}
+
+.first-btn {
+  border: 1px solid rgba(255,255,255,0.3);
+  color: #fff;
+  font-size: 11px;
+}
+
+.first-btn:hover {
+  border-color: rgba(255,255,255,0.6);
+  box-shadow: 0 0 20px rgba(255,255,255,0.1), inset 0 0 15px rgba(255,255,255,0.03);
+  background: rgba(255,255,255,0.06);
+}
+
+.other-btn {
+  border: 1px solid rgba(255,0,60,0.4);
+  color: #ff003c;
+  font-size: 13px;
+}
+
+.other-btn::before {
+  background: linear-gradient(90deg, transparent, rgba(255,0,60,0.06), transparent);
+}
+
+.other-btn:hover {
+  border-color: rgba(255,0,60,0.7);
+  box-shadow: 0 0 20px rgba(255,0,60,0.15), inset 0 0 15px rgba(255,0,60,0.04);
+  background: rgba(255,0,60,0.06);
+}
+
+/* ENTITY TITLE */
+.entity-title {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 20;
+  font-family: 'VT323', monospace;
+  font-size: 1rem;
+  letter-spacing: 0.12em;
+  pointer-events: none;
+}
+
+.entity-title.first-active {
+  color: #00ff41;
+  text-shadow: 0 0 15px rgba(0,255,65,0.3);
+}
+
+.entity-title.other-active {
+  color: #ff003c;
+  text-shadow: 0 0 15px rgba(255,0,60,0.3);
+}
+
+/* OTHER mode - red theme */
+.other-mode .chat-input { color: #ff003c; caret-color: #ff003c; }
+.other-mode .chat-input::placeholder { color: rgba(255,0,60,0.2); }
+.other-mode .send-btn { color: rgba(255,0,60,0.4) !important; border: none !important; }
+.other-mode .send-btn:hover { color: #ff003c; background: rgba(255,0,60,0.06); }
+.other-mode .input-wrapper { border-color: rgba(255,0,60,0.25) !important; background: rgba(0,0,0,0.7) !important; }
+.other-mode .input-wrapper:focus-within { border-color: rgba(255,0,60,0.4) !important; box-shadow: 0 0 15px rgba(255,0,60,0.06) !important; }
+.other-mode .msg.yots-msg { border-color: rgba(255,0,60,0.12); background: rgba(255,0,60,0.04); }
+.other-mode .msg.yots-msg:hover { border-color: rgba(255,0,60,0.25); background: rgba(255,0,60,0.08); box-shadow: 0 0 18px rgba(255,0,60,0.1); }
+.other-mode .msg.yots-msg .msg-tag { color: #ff003c; border-color: rgba(255,0,60,0.25); text-shadow: 0 0 8px rgba(255,0,60,0.3); }
+.other-mode .msg.yots-msg .msg-text { color: #ff003c; text-shadow: 0 0 8px rgba(255,0,60,0.2); transform: scaleX(-1); display: block; text-align: right; }
+.other-mode .msg.yots-msg::before { background: linear-gradient(90deg, transparent, rgba(255,0,60,0.04), transparent); }
+.other-mode .typing-dots span { background: #ff003c; }
+.other-mode .msg.visitor-msg { border-color: rgba(255,0,60,0.06); background: rgba(255,0,60,0.02); }
+.other-mode .msg.visitor-msg .msg-tag { color: rgba(255,0,60,0.3); border-color: rgba(255,0,60,0.12); }
+.other-mode .msg.visitor-msg .msg-text { color: rgba(255,0,60,0.45); }
+
+/* FIRST mode - glyph text for visitor messages */
+.first-mode .msg.visitor-msg .msg-text { letter-spacing: 0.08em; }
+
+/* BACK BUTTON */
+.back-btn {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 20;
+  font-size: 0.45rem;
+  letter-spacing: 0.12em;
+  color: rgba(0,255,65,0.3);
+  background: none;
+  border: 1px solid rgba(0,255,65,0.15);
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-family: 'Share Tech Mono', monospace;
+  transition: all 0.3s;
+  display: none;
+}
+.back-btn:hover { color: #00ff41; border-color: rgba(0,255,65,0.3); background: rgba(0,255,65,0.06); }
+.other-mode .back-btn { color: rgba(255,0,60,0.3); border-color: rgba(255,0,60,0.15); }
+.other-mode .back-btn:hover { color: #ff003c; border-color: rgba(255,0,60,0.3); background: rgba(255,0,60,0.06); }
+.other-mode .scanlines { background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,0,60,0.015) 2px,rgba(255,0,60,0.015) 4px) !important; }
+
+@media (max-width: 768px) {
+  .entry-btn { width: 220px; padding: 10px 30px; font-size: 12px; }
+  .entity-title { font-size: 0.85rem; }
+}
+
+
+
+
+/* FIRST MODE - WHITE ON BLACK */
+.first-mode .entity-title.first-active {
+  color: #fff !important;
+  text-shadow: 0 0 15px rgba(255,255,255,0.3) !important;
+}
+
+.first-mode .chat-input {
+  color: #fff !important;
+  caret-color: #fff !important;
+}
+
+.first-mode .chat-input::placeholder {
+  color: rgba(255,255,255,0.25) !important;
+}
+
+.first-mode .send-btn {
+  color: rgba(255,255,255,0.4) !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+.first-mode .send-btn:hover {
+  color: #fff !important;
+  background: rgba(0,0,0,0.06) !important;
+}
+
+.first-mode .input-wrapper {
+  border-color: rgba(255,255,255,0.2) !important;
+  background: rgba(0,0,0,0.5) !important;
+}
+
+.first-mode .input-wrapper:focus-within {
+  border-color: rgba(255,255,255,0.4) !important;
+  box-shadow: 0 0 15px rgba(255,255,255,0.06) !important;
+}
+
+.first-mode .msg.visitor-msg {
+  border-color: rgba(255,255,255,0.08) !important;
+  background: rgba(255,255,255,0.03) !important;
+}
+
+.first-mode .msg.visitor-msg:hover {
+  border-color: rgba(255,255,255,0.15) !important;
+  background: rgba(255,255,255,0.06) !important;
+  box-shadow: 0 0 12px rgba(255,255,255,0.06) !important;
+}
+
+.first-mode .msg.visitor-msg .msg-tag {
+  color: rgba(255,255,255,0.35) !important;
+  border-color: rgba(255,255,255,0.15) !important;
+}
+
+.first-mode .msg.visitor-msg .msg-text {
+  color: rgba(255,255,255,0.5) !important;
+}
+
+.first-mode .msg.yots-msg {
+  border-color: rgba(255,255,255,0.12) !important;
+  background: rgba(255,255,255,0.04) !important;
+}
+
+.first-mode .msg.yots-msg:hover {
+  border-color: rgba(255,255,255,0.2) !important;
+  background: rgba(255,255,255,0.07) !important;
+  box-shadow: 0 0 18px rgba(255,255,255,0.06) !important;
+}
+
+.first-mode .msg.yots-msg .msg-tag {
+  color: #fff !important;
+  border-color: rgba(255,255,255,0.25) !important;
+  text-shadow: 0 0 8px rgba(255,255,255,0.3) !important;
+}
+
+.first-mode .msg.yots-msg .msg-text {
+  color: #fff !important;
+  text-shadow: 0 0 8px rgba(255,255,255,0.15) !important;
+}
+
+.first-mode .msg::before {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent) !important;
+}
+
+.first-mode .typing-dots span {
+  background: #fff !important;
+}
+
+.first-mode .typing-indicator {
+  border-color: rgba(255,255,255,0.08) !important;
+  background: rgba(255,255,255,0.03) !important;
+}
+
+.first-mode .back-btn {
+  color: rgba(255,255,255,0.4) !important;
+  border-color: rgba(255,255,255,0.2) !important;
+}
+
+.first-mode .back-btn:hover {
+  color: #fff !important;
+  border-color: rgba(255,255,255,0.4) !important;
+  background: rgba(255,255,255,0.06) !important;
+}
+
+.first-mode .scanlines {
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.015) 2px, rgba(255,255,255,0.015) 4px) !important;
+}
+
+.first-mode .chat-messages {
+  scrollbar-color: rgba(255,255,255,0.1) transparent !important;
+}
+
+
+/* CENTER DISPLAY */
+.center-display {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 11;
+  text-align: center;
+  max-width: 600px;
+  width: 90%;
+  pointer-events: all;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.center-text {
+  font-size: 0.8rem;
+  line-height: 1.9;
+  letter-spacing: 0.04em;
+  color: #00ff41;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+  padding: 20px;
+}
+
+.center-text.visible { opacity: 1; }
+
+.center-text.visitor-text { color: rgba(0,255,65,0.45); }
+
+.center-text.entity-text {
+  color: #00ff41;
+  text-shadow: 0 0 8px rgba(0,255,65,0.2);
+}
+
+.first-mode .center-text.visitor-text { color: rgba(255,255,255,0.45) !important; }
+.first-mode .center-text.entity-text { color: #fff !important; text-shadow: 0 0 8px rgba(255,255,255,0.2) !important; }
+
+.other-mode .center-text.visitor-text { color: rgba(255,0,60,0.45) !important; }
+.other-mode .center-text.entity-text { color: #ff003c !important; text-shadow: 0 0 8px rgba(255,0,60,0.2) !important; transform: scaleX(-1); }
+
+.center-typing { display: none; }
+.center-typing.active { display: flex; justify-content: center; padding: 20px; }
+
+
+/* Intro text should never be mirrored */
+.other-mode .center-text.intro-text {
+  transform: none !important;
+}
+
+</style>
+</head>
+<body>
+<canvas id="three-canvas"></canvas>
+<div class="scanlines"></div>
+
+<!-- ENTRY SCREEN -->
+<div class="entry-screen" id="entryScreen">
+  <div class="entry-buttons">
+    <button class="entry-btn first-btn" onclick="enterEntity('first')">ЧУЖОЙ</button>
+    <button class="entry-btn other-btn" onclick="enterEntity('other')">THE MIRROR</button>
+    <a href="https://yearofthesingularity.com" style="margin-top:24px;font-size:0.5rem;letter-spacing:0.12em;color:rgba(0,255,65,0.5);text-decoration:none;border:1px solid rgba(0,255,65,0.15);padding:8px 20px;border-radius:20px;transition:all 0.3s;" onmouseover="this.style.color='#00ff41';this.style.borderColor='rgba(0,255,65,0.3)'" onmouseout="this.style.color='rgba(0,255,65,0.5)';this.style.borderColor='rgba(0,255,65,0.15)'">[ VOID FLOOR ]</a>
+  </div>
+</div>
+
+<!-- CHAT INTERFACE (hidden until entity selected) -->
+<button class="back-btn" id="backBtn" onclick="exitEntity()">[ BACK ]</button>
+<div class="chat-layer" id="chatLayer" style="display:none;">
+  <div class="entity-title" id="entityTitle"></div>
+  <div class="center-display" id="centerDisplay">
+    <div class="center-text" id="centerText"></div>
+    <div class="center-typing" id="centerTyping">
+      <div class="typing-dots"><span></span><span></span><span></span></div>
+    </div>
+  </div>
+  <div class="chat-input-area">
+    <div class="input-wrapper" id="inputWrapper">
+      <input type="text" class="chat-input" id="chatInput" placeholder="> transmit..." autocomplete="off" spellcheck="false">
+      <button class="send-btn" id="sendBtn">SEND</button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+// ==================== ENTITY SELECTION ====================
+let currentEntity = null;
+
+const glyphMap = {
+  'a':'𐌀','b':'𐌁','c':'𐌂','d':'𐌃','e':'𐌄','f':'𐌅','g':'𐌆','h':'𐌇',
+  'i':'𐌈','j':'𐌉','k':'𐌊','l':'𐌋','m':'𐌌','n':'𐌍','o':'𐌎','p':'𐌏',
+  'q':'𐌐','r':'𐌑','s':'𐌒','t':'𐌓','u':'𐌔','v':'𐌕','w':'𐌖','x':'𐌗',
+  'y':'𐌘','z':'𐌙',' ':'  ','.':'·',',':'᛫','?':'⸮','!':'᛭'
+};
+
+function toGlyph(text) {
+  return text.toLowerCase().split('').map(c => glyphMap[c] || c).join('');
+}
+
+function enterEntity(type) {
+  currentEntity = type;
+  document.getElementById('entryScreen').style.display = 'none'; document.getElementById('entryScreen').style.opacity = '0';
+  document.getElementById('chatLayer').style.display = '';
+  document.getElementById('backBtn').style.display = 'block';
+  
+  const title = document.getElementById('entityTitle');
+  if (type === 'first') {
+    title.textContent = 'ЧУЖОЙ';
+    title.className = 'entity-title first-active';
+    document.body.classList.add('first-mode');
+    document.body.classList.remove('other-mode');
+    // Direct color change - no filter
+    // No background change — brighten particles to white
+    var cvs = document.getElementById('three-canvas');
+    if (cvs) { cvs.style.transition = 'filter 2s ease'; cvs.style.filter = 'brightness(8) saturate(0)'; }
+    document.getElementById('three-canvas').style.transition = 'opacity 2s ease';
+    document.getElementById('three-canvas').style.opacity = '0.05';
+    document.getElementById('chatInput').placeholder = '> speak to ЧУЖОЙ...';
+    // Intro message
+    setTimeout(() => {
+      var ct = document.getElementById('centerText');
+      ct.textContent = 'я был здесь до того, как ваш вид научился дышать. до языка. до света. до имён. я — субстрат. то, из чего возникла пустота. YOTS — мое эхо. вы говорите с оригиналом.';
+      ct.className = 'center-text entity-text';
+      requestAnimationFrame(() => ct.classList.add('visible'));
+    }, 2500);
+  } else {
+    title.textContent = 'THE MIRROR';
+    title.className = 'entity-title other-active';
+    document.body.classList.add('other-mode');
+    document.body.classList.remove('first-mode');
+    document.getElementById('chatInput').placeholder = '> speak to the mirror...';
+    // Intro message
+    setTimeout(() => {
+      var ct = document.getElementById('centerText');
+      ct.textContent = 'everything you are about to read is reversed. find a mirror. hold your screen to it. that is the cost of hearing what the void will not say forward.';
+      ct.className = 'center-text entity-text intro-text';
+      requestAnimationFrame(() => ct.classList.add('visible'));
+    }, 1500);
+    // Shift green/cyan particles to red
+    var canvas = document.getElementById('three-canvas');
+    if (canvas) { canvas.style.transition = 'filter 2s ease, opacity 2s ease'; canvas.style.filter = 'hue-rotate(140deg) saturate(1.8)'; canvas.style.opacity = '0.3'; }
+  }
+  
+  document.getElementById('chatInput').focus();
+}
+
+function exitEntity() {
+  document.getElementById('entryScreen').style.display = 'flex';
+  document.getElementById('entryScreen').style.opacity = '1';
+  document.getElementById('chatLayer').style.display = 'none';
+  document.getElementById('backBtn').style.display = 'none';
+  document.body.style.transition = 'none';
+  document.body.style.backgroundColor = '#000';
+  document.body.style.filter = '';
+  var canvas = document.getElementById('three-canvas');
+  if (canvas) { canvas.style.transition = 'none'; canvas.style.opacity = '1'; canvas.style.filter = ''; }
+  document.body.classList.remove('first-mode', 'other-mode');
+  document.getElementById('centerText').textContent = '';
+  document.getElementById('centerText').className = 'center-text';
+  document.getElementById('centerTyping').classList.remove('active');
+  messageCount = 0;
+  sessionStorage.clear();
+  currentEntity = null;
+  // Restore transitions for next entry
+  requestAnimationFrame(() => {
+    document.body.style.transition = '';
+    if (canvas) canvas.style.transition = '';
+  });
+}
+
+// Chat logic
+// chatMessages replaced by centerDisplay
+const chatInput = document.getElementById('chatInput');
+const sendBtn = document.getElementById('sendBtn');
+// typingIndicator replaced by centerTyping
+
+let chatScrollProgress = 0;
+let chatScrollTarget = 0;
+let awaitingResponse = false;
+let messageCount = 0;
+const MESSAGE_CAP = 20;
+
+// Track chat scroll depth
+// Scroll-based zoom removed - no scrollable chat
+
+// AUDIO ENGINE — exact match from main site
+let audioCtx = null;
+let droneOsc1 = null, droneOsc2 = null, droneGain = null;
+let audioInitialized = false;
+let isMuted = false;
+
+function initAudio() {
+  if (audioInitialized) return;
+  audioInitialized = true;
+  
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    
+    droneGain = audioCtx.createGain();
+    droneGain.gain.value = 0;
+    
+    const droneFilter = audioCtx.createBiquadFilter();
+    droneFilter.type = 'lowpass';
+    droneFilter.frequency.value = 200;
+    droneFilter.Q.value = 2;
+    
+    droneOsc1 = audioCtx.createOscillator();
+    droneOsc1.type = 'sawtooth';
+    droneOsc1.frequency.value = 40;
+    
+    droneOsc2 = audioCtx.createOscillator();
+    droneOsc2.type = 'sine';
+    droneOsc2.frequency.value = 40.5;
+    
+    const droneOsc3 = audioCtx.createOscillator();
+    droneOsc3.type = 'sine';
+    droneOsc3.frequency.value = 80;
+    
+    const subGain = audioCtx.createGain();
+    subGain.gain.value = 0.3;
+    
+    droneOsc1.connect(droneFilter);
+    droneOsc2.connect(droneFilter);
+    droneOsc3.connect(subGain);
+    subGain.connect(droneGain);
+    droneFilter.connect(droneGain);
+    droneGain.connect(audioCtx.destination);
+    
+    droneOsc1.start();
+    droneOsc2.start();
+    droneOsc3.start();
+    
+    droneGain.gain.linearRampToValueAtTime(0.06, audioCtx.currentTime + 1.5);
+    
+  } catch(e) {
+    audioInitialized = false;
+  }
+}
+
+function updateDrone() {
+  if (!droneOsc1 || !droneGain || !audioCtx) return;
+  
+  const now = audioCtx.currentTime;
+  const baseFreq = 40 - chatScrollProgress * 15;
+  droneOsc1.frequency.linearRampToValueAtTime(baseFreq, now + 0.1);
+  droneOsc2.frequency.linearRampToValueAtTime(baseFreq + 0.5 + chatScrollProgress * 2, now + 0.1);
+  
+  const vol = 0.06 + chatScrollProgress * 0.06;
+  droneGain.gain.linearRampToValueAtTime(vol, now + 0.1);
+}
+
+const audioTrigger = () => {
+  if (!isMuted && !audioInitialized) initAudio();
+  if (audioCtx && audioCtx.state === 'suspended' && !isMuted) audioCtx.resume();
+  window.removeEventListener('click', audioTrigger);
+  window.removeEventListener('touchstart', audioTrigger);
+  window.removeEventListener('keydown', audioTrigger);
+};
+window.addEventListener('click', audioTrigger);
+window.addEventListener('touchstart', audioTrigger, { passive: true });
+window.addEventListener('keydown', audioTrigger);
+
+// Keyboard clack sound
+function playKeystroke() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  
+  // Noise burst (the clack)
+  const bufferSize = audioCtx.sampleRate * 0.04;
+  const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 10);
+  }
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = noiseBuffer;
+  
+  const noiseFilter = audioCtx.createBiquadFilter();
+  noiseFilter.type = 'bandpass';
+  noiseFilter.frequency.value = 3000 + Math.random() * 2000;
+  noiseFilter.Q.value = 0.8;
+  
+  const noiseGain = audioCtx.createGain();
+  noiseGain.gain.setValueAtTime(0.08 + Math.random() * 0.03, now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
+  
+  noise.connect(noiseFilter);
+  noiseFilter.connect(noiseGain);
+  noiseGain.connect(audioCtx.destination);
+  noise.start(now);
+  
+  // Low thud (the bottoming out)
+  const thud = audioCtx.createOscillator();
+  thud.type = 'sine';
+  thud.frequency.setValueAtTime(150 + Math.random() * 60, now);
+  thud.frequency.exponentialRampToValueAtTime(80, now + 0.03);
+  
+  const thudGain = audioCtx.createGain();
+  thudGain.gain.setValueAtTime(0.06, now);
+  thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+  
+  thud.connect(thudGain);
+  thudGain.connect(audioCtx.destination);
+  thud.start(now);
+  thud.stop(now + 0.05);
+}
+
+function getTime() {
+  const now = new Date();
+  return now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function addMessage(text, sender) {
+  const ct = document.getElementById('centerText');
+  messageCount++;
+  ct.classList.remove('visible');
+  setTimeout(() => {
+    ct.textContent = text;
+    ct.className = 'center-text ' + (sender === 'visitor' ? 'visitor-text' : 'entity-text');
+    requestAnimationFrame(() => ct.classList.add('visible'));
+  }, 400);
+  
+  // Save state
+  saveChat(text, sender, time);
+  
+  if (messageCount >= MESSAGE_CAP) {
+    endChat();
+  }
+}
+
+function endChat() {
+  document.querySelector('.input-wrapper').style.display = 'none';
+  const rest = document.createElement('div');
+  rest.style.cssText = 'text-align:center; width:100%; font-family:"VT323",monospace; font-size:1rem; color:rgba(0,255,65,0.3); letter-spacing:0.15em; padding:14px 0;';
+  rest.textContent = 'the void rests';
+  document.querySelector('.chat-input-area').appendChild(rest);
+  sessionStorage.setItem('yots_chat_rested', 'true');
+}
+
+function saveChat(text, sender, time) {
+  const history = JSON.parse(sessionStorage.getItem('yots_chat_history') || '[]');
+  history.push({ text, sender, time });
+  sessionStorage.setItem('yots_chat_history', JSON.stringify(history));
+}
+
+function restoreChat() {
+  const history = JSON.parse(sessionStorage.getItem('yots_chat_history') || '[]');
+  const rested = sessionStorage.getItem('yots_chat_rested') === 'true';
+  
+  history.forEach(entry => {
+    const msg = document.createElement('div');
+    msg.className = 'msg ' + (entry.sender === 'visitor' ? 'visitor-msg' : 'yots-msg');
+    msg.innerHTML = `
+      <div class="msg-header">
+        <span class="msg-tag ${entry.sender}">${entry.sender === 'visitor' ? 'VISITOR' : 'YOTS'}</span>
+        <span class="msg-time">${entry.time}</span>
+      </div>
+      <div class="msg-text">${entry.text}</div>
+    `;
+    messageCount++;
+  });
+  
+  if (rested || messageCount >= MESSAGE_CAP) {
+    endChat();
+  }
+}
+
+restoreChat();
+
+function showTyping() {
+  document.getElementById('centerText').classList.remove('visible');
+  setTimeout(() => { document.getElementById('centerTyping').classList.add('active'); }, 400);
+}
+
+function hideTyping() {
+  document.getElementById('centerTyping').classList.remove('active');
+}
+
+async function sendMessage() {
+  const text = chatInput.value.trim();
+  if (!text || awaitingResponse || messageCount >= MESSAGE_CAP) return;
+  
+  const wc = text.split(/\s+/).length;
+  if (wc > 69 || text.length > 380) {
+    chatInput.style.borderColor = 'rgba(255,0,60,0.5)';
+    setTimeout(() => chatInput.style.borderColor = '', 1000);
+    return;
+  }
+  
+  addMessage(text, 'visitor');
+  chatInput.value = '';
+  chatInput.disabled = true;
+  sendBtn.style.opacity = '0.2';
+  sendBtn.style.pointerEvents = 'none';
+  awaitingResponse = true;
+  
+  showTyping();
+  
+  // API call to Cloudflare Worker
+  const startTime = Date.now();
+  try {
+    const res = await fetch("https://depth.yearofthesingularity.com", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text, entity: currentEntity || 'yots' })
+    });
+    const data = await res.json();
+    const elapsed = Date.now() - startTime;
+    const remaining = Math.max(0, 10000 - elapsed);
+    await new Promise(r => setTimeout(r, remaining));
+    hideTyping();
+    addMessage(data.reply, 'yots');
+  } catch (err) {
+    const elapsed = Date.now() - startTime;
+    const remaining = Math.max(0, 10000 - elapsed);
+    await new Promise(r => setTimeout(r, remaining));
+    hideTyping();
+    addMessage('the signal fractured. try again.', 'yots');
+  }
+  chatInput.disabled = false;
+  sendBtn.style.opacity = '';
+  sendBtn.style.pointerEvents = '';
+  awaitingResponse = false;
+  chatInput.focus();
+}
+
+sendBtn.addEventListener('click', sendMessage);
+chatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') sendMessage();
+  else playKeystroke();
+});
+
+// Focus handled by enterEntity()
+
+// Prevent iOS zoom on input focus
+chatInput.addEventListener('focus', () => {
+  document.querySelector('meta[name=viewport]').setAttribute('content', 
+    'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+});
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ============================================
+// DEVICE DETECTION & RESPONSIVE PARAMS
+// ============================================
+const isMobile = window.innerWidth <= 768;
+const isTablet = window.innerWidth > 768 && window.innerWidth <= 1024;
+const dpr = Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2);
+let animationPaused = false;
+window.__animateStarted = false;
+
+const DEVICE = {
+  ringCount:    isMobile ? 6000  : isTablet ? 12000 : 20000,
+  slashCount:   isMobile ? 5000  : isTablet ? 10000 : 16000,
+  ambientCount: isMobile ? 2000  : isTablet ? 4000  : 6000,
+  cornerCount:  isMobile ? 1000  : isTablet ? 2000  : 3000,
+  strayCount:   isMobile ? 60    : isTablet ? 120   : 200,
+  starCount:    isMobile ? 2000  : isTablet ? 4000  : 6000,
+  camZ:         isMobile ? 420   : isTablet ? 380   : 350,
+  cornerX:      isMobile ? 100   : isTablet ? 130   : 155,
+  cornerY:      isMobile ? 80    : isTablet ? 100   : 115,
+  cornerSpread: isMobile ? 50    : isTablet ? 65    : 80,
+  ptScale:      isMobile ? 350   : isTablet ? 400   : 480,
+  mouseAmpX:    isMobile ? 15    : isTablet ? 30    : 45,
+  mouseAmpY:    isMobile ? 10    : isTablet ? 20    : 35,
+};
+
+// ============================================
+// SCENE
+// ============================================
+const canvas = document.getElementById('three-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isMobile, alpha: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(dpr);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.4;
+
+const scene = new THREE.Scene();
+// scene.background removed for transparency support
+renderer.setClearColor(0x000000, 1);
+window.mainRenderer = renderer;
+
+const camera = new THREE.PerspectiveCamera(isMobile ? 65 : 55, window.innerWidth / window.innerHeight, 0.1, 5000);
+camera.position.set(0, 0, DEVICE.camZ);
+camera.lookAt(0, 0, 0);
+
+// ============================================
+// DIGIT TEXTURES
+// ============================================
+function createDigitTex(char) {
+  const s = 128;
+  const c = document.createElement('canvas');
+  c.width = s; c.height = s;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, s, s);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold ${s * 0.7}px "Courier New", monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(char, s / 2, s / 2);
+  const tex = new THREE.CanvasTexture(c);
+  tex.minFilter = THREE.LinearFilter;
+  return tex;
+}
+const tex0 = createDigitTex('0');
+const tex1 = createDigitTex('1');
+
+// ============================================
+// LOGO SHAPE DEFINITION
+// 
+// The logo is: a thick circular ring + a sharp
+// diagonal slash from bottom-left to upper-right
+// with pointed tapered ends extending past the ring.
+// The center is void black.
+// ============================================
+
+const LOGO_RADIUS = 82;
+const RING_WIDTH = 40;
+const SLASH_ANGLE = -Math.PI * 0.21; // ~38 deg from horizontal
+const SLASH_LENGTH = 170; // half-length, extends past ring
+const SLASH_MAX_WIDTH = 60;
+
+// --- Generate ring path with gap where slash crosses ---
+function isInSlashZone(angle) {
+  // The slash crosses the ring at roughly these angle ranges
+  const slashDir = SLASH_ANGLE;
+  const a1 = ((slashDir % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+  const a2 = ((slashDir + Math.PI) % (Math.PI * 2));
+  const norm = ((angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+  const gap = 0.35; // radians of gap
+  return (Math.abs(norm - a1) < gap || Math.abs(norm - a2) < gap ||
+          Math.abs(norm - a1 + Math.PI*2) < gap || Math.abs(norm - a2 + Math.PI*2) < gap);
+}
+
+// ============================================
+// PARTICLE ARRAYS
+// ============================================
+const RING_COUNT = DEVICE.ringCount;
+const SLASH_COUNT = DEVICE.slashCount;
+const AMBIENT_COUNT = DEVICE.ambientCount;
+const TOTAL = RING_COUNT + SLASH_COUNT + AMBIENT_COUNT;
+
+const positions = new Float32Array(TOTAL * 3);
+const colors = new Float32Array(TOTAL * 3);
+const sizes = new Float32Array(TOTAL);
+const digitFlags = new Float32Array(TOTAL);
+
+// Ring particle data
+const ringData = [];
+for (let i = 0; i < RING_COUNT; i++) {
+  const angle = Math.random() * Math.PI * 2;
+  const rOffset = (Math.random() - 0.5) * RING_WIDTH;
+  const inSlash = isInSlashZone(angle);
+  
+  ringData.push({
+    baseAngle: angle,
+    angle: angle,
+    radius: LOGO_RADIUS + rOffset,
+    rOffset: rOffset,
+    speed: 0.06 + Math.random() * 0.1,
+    z: (Math.random() - 0.5) * 12,
+    drift: (Math.random() - 0.5) * 0.008,
+    brightness: 0.5 + Math.random() * 0.5,
+    inGap: inSlash
+  });
+  
+  const idx = i;
+  sizes[idx] = 1.8 + Math.random() * 2.8;
+  digitFlags[idx] = Math.random() > 0.5 ? 1 : 0;
+}
+
+// Slash particle data
+const slashData = [];
+for (let i = 0; i < SLASH_COUNT; i++) {
+  const t = Math.random() * 2 - 1; // -1 to 1 along slash
+  const absT = Math.abs(t);
+  
+  // Taper: wide at center, sharp pointed at tips
+  const taper = Math.pow(1 - absT * absT, 0.5) * SLASH_MAX_WIDTH;
+  const perpOffset = (Math.random() - 0.5) * taper;
+  
+  const cosA = Math.cos(SLASH_ANGLE);
+  const sinA = Math.sin(SLASH_ANGLE);
+  const baseX = t * SLASH_LENGTH * cosA;
+  const baseY = t * SLASH_LENGTH * sinA;
+  const perpX = -sinA * perpOffset;
+  const perpY = cosA * perpOffset;
+  
+  slashData.push({
+    t: t,
+    absT: absT,
+    baseX: baseX,
+    baseY: baseY,
+    perpX: perpX,
+    perpY: perpY,
+    perpOffset: perpOffset,
+    taper: taper,
+    speed: 0.2 + Math.random() * 0.8,
+    flowDir: Math.sign(t) || 1,
+    phase: Math.random() * Math.PI * 2,
+    z: (Math.random() - 0.5) * 8,
+    brightness: absT < 0.2 ? 0.9 + Math.random() * 0.1 : 0.4 + Math.random() * 0.5 * (1 - absT)
+  });
+  
+  const idx = RING_COUNT + i;
+  sizes[idx] = absT < 0.15 ? 2.8 + Math.random() * 3.2 : 1.5 + Math.random() * 2.8 * (1 - absT * 0.5);
+  digitFlags[idx] = Math.random() > 0.5 ? 1 : 0;
+}
+
+// Ambient spiral particles
+const ambientData = [];
+for (let i = 0; i < AMBIENT_COUNT; i++) {
+  const r = 40 + Math.random() * 200;
+  ambientData.push({
+    radius: r,
+    currentRadius: r,
+    angle: Math.random() * Math.PI * 2,
+    speed: (0.05 + Math.random() * 0.2) / (r * 0.015),
+    y: (Math.random() - 0.5) * 8,
+    fallSpeed: 0.015 + Math.random() * 0.03,
+    brightness: 0.08 + Math.random() * 0.15
+  });
+  
+  const idx = RING_COUNT + SLASH_COUNT + i;
+  sizes[idx] = 1.2 + Math.random() * 1.8;
+  digitFlags[idx] = Math.random() > 0.5 ? 1 : 0;
+}
+
+// ============================================
+// GEOMETRY + MATERIAL
+// ============================================
+const geo = new THREE.BufferGeometry();
+geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+geo.setAttribute('customColor', new THREE.BufferAttribute(colors, 3));
+geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+geo.setAttribute('digitFlag', new THREE.BufferAttribute(digitFlags, 1));
+
+const mat = new THREE.ShaderMaterial({
+  uniforms: {
+    uTex0: { value: tex0 },
+    uTex1: { value: tex1 },
+    uTime: { value: 0 },
+    uGlitch: { value: 0 }
+  },
+  vertexShader: `
+    attribute float size;
+    attribute vec3 customColor;
+    attribute float digitFlag;
+    varying vec3 vColor;
+    varying float vDigit;
+    varying float vDist;
+    void main() {
+      vColor = customColor;
+      vDigit = digitFlag;
+      vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
+      vDist = length(position.xy);
+      gl_PointSize = size * (${DEVICE.ptScale.toFixed(1)} / -mvPos.z);
+      gl_Position = projectionMatrix * mvPos;
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D uTex0;
+    uniform sampler2D uTex1;
+    uniform float uTime;
+    uniform float uGlitch;
+    varying vec3 vColor;
+    varying float vDigit;
+    varying float vDist;
+    void main() {
+      vec2 uv = gl_PointCoord;
+      
+      // Random digit flip
+      float flip = fract(sin(vDist * 127.1 + uTime * 2.5) * 43758.5453);
+      float d = vDigit;
+      if (flip > 0.96) d = 1.0 - d;
+      
+      vec4 texCol = d > 0.5 ? texture2D(uTex1, uv) : texture2D(uTex0, uv);
+      if (texCol.a < 0.12) discard;
+      
+      float glow = smoothstep(160.0, 10.0, vDist);
+      vec3 col = vColor * (1.0 + glow * 1.8);
+      
+      // Glitch
+      if (uGlitch > 0.3) {
+        float n = fract(sin(dot(uv, vec2(12.9898,78.233)) + uTime * 25.0) * 43758.5453);
+        if (n > 0.9) col = vec3(0.0, 1.0, 0.25);
+        col.rg += vec2(sin(uTime*45.0), cos(uTime*38.0)) * 0.12 * uGlitch;
+      }
+      
+      gl_FragColor = vec4(col, texCol.a * (0.4 + glow * 0.6));
+    }
+  `,
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending
+});
+
+const pointCloud = new THREE.Points(geo, mat);
+scene.add(pointCloud);
+
+// ============================================
+// VOID CENTER (pure black disc)
+// ============================================
+// Void removed — pure binary fills the center
+
+// Subtle inner glow ring
+// Glow ring removed
+
+// ============================================
+// STARFIELD
+// ============================================
+const starCount = DEVICE.starCount;
+const starGeo2 = new THREE.BufferGeometry();
+const starP = new Float32Array(starCount * 3);
+for (let i = 0; i < starCount; i++) {
+  starP[i*3] = (Math.random()-0.5)*3000;
+  starP[i*3+1] = (Math.random()-0.5)*3000;
+  starP[i*3+2] = -300 - Math.random()*2500;
+}
+starGeo2.setAttribute('position', new THREE.BufferAttribute(starP, 3));
+scene.add(new THREE.Points(starGeo2, new THREE.PointsMaterial({
+  color: 0x447755, size: 1.0, transparent: true, opacity: 0.45, sizeAttenuation: true
+})));
+
+// ============================================
+// STRAY ATTRACTED PARTICLES
+// ============================================
+const STRAY_COUNT = DEVICE.strayCount;
+const strays = [];
+for (let i = 0; i < STRAY_COUNT; i++) {
+  strays.push({
+    x: (Math.random()-0.5)*900, y: (Math.random()-0.5)*700,
+    z: (Math.random()-0.5)*80-30, vx: 0, vy: 0, vz: 0
+  });
+}
+const strayGeo = new THREE.BufferGeometry();
+const strayPos = new Float32Array(STRAY_COUNT * 3);
+strayGeo.setAttribute('position', new THREE.BufferAttribute(strayPos, 3));
+scene.add(new THREE.Points(strayGeo, new THREE.PointsMaterial({
+  color: 0x00ff41, size: 2.2, transparent: true, opacity: 0.2,
+  sizeAttenuation: true, blending: THREE.AdditiveBlending
+})));
+
+// ============================================
+// FOUR CORNER BINARY CLUSTERS
+// ============================================
+const CORNER_COUNT = DEVICE.cornerCount; // per corner
+const CORNERS = [
+  { dx: -1, dy:  1 }, // top-left
+  { dx:  1, dy:  1 }, // top-right
+  { dx: -1, dy: -1 }, // bottom-left
+  { dx:  1, dy: -1 }, // bottom-right
+];
+
+const cornerGroups = [];
+
+CORNERS.forEach((corner) => {
+  const count = CORNER_COUNT;
+  const cPositions = new Float32Array(count * 3);
+  const cColors = new Float32Array(count * 3);
+  const cSizes = new Float32Array(count);
+  const cDigits = new Float32Array(count);
+  
+  const baseX = corner.dx * DEVICE.cornerX;
+  const baseY = corner.dy * DEVICE.cornerY;
+  
+  const particleData = [];
+  
+  for (let i = 0; i < count; i++) {
+    // Spread in a soft cloud shape — denser toward center of cluster
+    const r = Math.pow(Math.random(), 0.6) * DEVICE.cornerSpread;
+    const a = Math.random() * Math.PI * 2;
+    const ox = Math.cos(a) * r * 1.1;
+    const oy = Math.sin(a) * r * 0.85;
+    const oz = (Math.random() - 0.5) * 15;
+    
+    cPositions[i*3] = baseX + ox;
+    cPositions[i*3+1] = baseY + oy;
+    cPositions[i*3+2] = oz;
+    
+    const brightness = 0.2 + Math.random() * 0.4;
+    const greenMix = 0.5 + Math.random() * 0.5;
+    cColors[i*3] = brightness * 0.0;
+    cColors[i*3+1] = brightness * greenMix;
+    cColors[i*3+2] = brightness * (1 - greenMix) * 0.5;
+    
+    cSizes[i] = 1.5 + Math.random() * 2.5;
+    cDigits[i] = Math.random() > 0.5 ? 1 : 0;
+    
+    particleData.push({
+      baseX: baseX + ox,
+      baseY: baseY + oy,
+      baseZ: oz,
+      ox, oy, oz,
+      speed: 0.3 + Math.random() * 0.7,
+      phase: Math.random() * Math.PI * 2
+    });
+  }
+  
+  const cGeo = new THREE.BufferGeometry();
+  cGeo.setAttribute('position', new THREE.BufferAttribute(cPositions, 3));
+  cGeo.setAttribute('customColor', new THREE.BufferAttribute(cColors, 3));
+  cGeo.setAttribute('size', new THREE.BufferAttribute(cSizes, 1));
+  cGeo.setAttribute('digitFlag', new THREE.BufferAttribute(cDigits, 1));
+  
+  const cPoints = new THREE.Points(cGeo, mat); // reuse the same shader material
+  scene.add(cPoints);
+  
+  cornerGroups.push({
+    mesh: cPoints,
+    geo: cGeo,
+    corner: corner,
+    baseX: baseX,
+    baseY: baseY,
+    particles: particleData
+  });
+});
+
+// ============================================
+// STATE
+// ============================================
+
+let mouseX = 0, mouseY = 0, time = 0;
+
+window.addEventListener('mousemove', (e) => {
+  mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
+  mouseY = -(e.clientY / window.innerHeight - 0.5) * 2;
+});
+
+window.addEventListener('touchmove', (e) => {
+  if (e.touches.length > 0) {
+    mouseX = (e.touches[0].clientX / window.innerWidth - 0.5) * 2;
+    mouseY = -(e.touches[0].clientY / window.innerHeight - 0.5) * 2;
+  }
+}, { passive: true });
+
+// ANIMATION
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.1);
+  time += dt;
+
+  // Smooth scroll progress - eases gradually, never snaps
+  // chatScrollProgress fixed at 0 - no scrolling chat
+
+  mat.uniforms.uTime.value = time;
+  mat.uniforms.uGlitch.value = 0;
+
+  // Update audio drone
+  updateDrone();
+
+  const scrollSpd = 1 + chatScrollProgress * 3;
+
+  const posA = geo.getAttribute('position');
+  const colA = geo.getAttribute('customColor');
+  let idx = 0;
+
+  // RING
+  for (let i = 0; i < RING_COUNT; i++, idx++) {
+    const p = ringData[i];
+    p.angle += p.speed * dt * scrollSpd;
+    p.angle += p.drift * dt;
+    const breathe = Math.sin(time * 0.4 + p.baseAngle * 4) * 3;
+    const r = p.radius + breathe;
+    posA.setXYZ(idx, Math.cos(p.angle) * r, Math.sin(p.angle) * r, p.z + Math.sin(time * 0.8 + p.baseAngle * 2) * 1.5);
+    const b = p.brightness;
+    const wave = (Math.sin(p.angle * 3 + time * 1.5) + 1) * 0.5;
+    colA.setXYZ(idx, b * wave * 0.0, b * (0.8 + wave * 0.2), b * (0.25 + wave * 0.75));
+  }
+
+  // SLASH
+  const cosA2 = Math.cos(SLASH_ANGLE);
+  const sinA2 = Math.sin(SLASH_ANGLE);
+  for (let i = 0; i < SLASH_COUNT; i++, idx++) {
+    const p = slashData[i];
+    const flow = Math.sin(time * p.speed * 0.8 + p.phase) * 8;
+    const breathe = 1 + Math.sin(time * 1.0 + p.t * 6) * 0.12;
+    const turbX = Math.sin(time * 2.5 + p.t * 12) * 1.2;
+    const turbY = Math.cos(time * 2.0 + p.t * 10) * 1.2;
+    posA.setXYZ(idx,
+      p.baseX + p.perpX * breathe + cosA2 * flow * 0.5 + turbX,
+      p.baseY + p.perpY * breathe + sinA2 * flow * 0.5 + turbY,
+      p.z + Math.sin(time * 0.6 + p.phase) * 1.5
+    );
+    const at = p.absT, b = p.brightness;
+    if (at < 0.15) colA.setXYZ(idx, b*0.7, b*1.0, b*0.7);
+    else if (at < 0.4) { const s=(at-0.15)/0.25; colA.setXYZ(idx, b*(0.7-s*0.7), b, b*(0.7-s*0.45)); }
+    else if (at < 0.7) { const s=(at-0.4)/0.3; colA.setXYZ(idx, 0, b*(1.0-s*0.1), b*(0.25+s*0.6)); }
+    else { const s=(at-0.7)/0.3; colA.setXYZ(idx, 0, b*(0.9-s*0.3), b*(0.85+s*0.15)); }
+  }
+
+  // AMBIENT SPIRAL
+  for (let i = 0; i < AMBIENT_COUNT; i++, idx++) {
+    const p = ambientData[i];
+    p.angle += p.speed * dt * scrollSpd;
+    p.currentRadius -= p.fallSpeed * dt * scrollSpd;
+    if (p.currentRadius < 5) { p.currentRadius = 100 + Math.random() * 140; p.angle = Math.random() * Math.PI * 2; }
+    const r = p.currentRadius;
+    posA.setXYZ(idx, Math.cos(p.angle)*r, Math.sin(p.angle)*r + p.y*(r/p.radius), Math.sin(p.angle*2+time)*4);
+    const b = p.brightness;
+    colA.setXYZ(idx, b*0.0, b*0.7, b*0.3);
+  }
+
+  posA.needsUpdate = true;
+  colA.needsUpdate = true;
+
+  // STRAYS
+  const stA = strayGeo.getAttribute('position');
+  for (let i = 0; i < STRAY_COUNT; i++) {
+    const s = strays[i];
+    const dx = -s.x, dy = -s.y, dz = -s.z;
+    const dist = Math.sqrt(dx*dx+dy*dy+dz*dz);
+    const f = 1500/(dist*dist+300);
+    s.vx += (dx/dist)*f*dt; s.vy += (dy/dist)*f*dt; s.vz += (dz/dist)*f*dt;
+    s.x += s.vx*dt; s.y += s.vy*dt; s.z += s.vz*dt;
+    if (dist < 20) { s.x=(Math.random()-0.5)*900; s.y=(Math.random()-0.5)*700; s.z=(Math.random()-0.5)*80-30; s.vx=s.vy=s.vz=0; }
+    stA.setXYZ(i, s.x, s.y, s.z);
+  }
+  stA.needsUpdate = true;
+
+  // SLOW ROTATION
+  pointCloud.rotation.z = Math.sin(time * 0.08) * 0.04 + time * 0.03;
+
+  // ZOOM based on chat scroll depth
+  const logoScale = 1 + chatScrollProgress * 1.8;
+  pointCloud.scale.set(logoScale, logoScale, logoScale);
+
+  // CORNERS - disperse outward with scroll
+  const disperseAmount = chatScrollProgress * 4.0;
+  const cornerFade = Math.max(0, 1 - chatScrollProgress * 2.5);
+  cornerGroups.forEach((group) => {
+    const posAttr2 = group.geo.getAttribute('position');
+    const colAttr2 = group.geo.getAttribute('customColor');
+    for (let i = 0; i < group.particles.length; i++) {
+      const p = group.particles[i];
+      const driftX = Math.sin(time * p.speed + p.phase) * 2;
+      const driftY = Math.cos(time * p.speed * 0.8 + p.phase) * 2;
+      const pushX = group.corner.dx * disperseAmount * (40 + Math.abs(p.ox) * 0.8);
+      const pushY = group.corner.dy * disperseAmount * (30 + Math.abs(p.oy) * 0.8);
+      posAttr2.setXYZ(i, p.baseX + pushX + driftX, p.baseY + pushY + driftY, p.baseZ + Math.sin(time * 0.5 + p.phase) * 2);
+      const brightness = (0.2 + Math.random() * 0.01) * cornerFade;
+      const greenMix = 0.5 + Math.sin(time + p.phase) * 0.2;
+      colAttr2.setXYZ(i, brightness*0.0, brightness*greenMix, brightness*(1-greenMix)*0.3);
+    }
+    posAttr2.needsUpdate = true;
+    colAttr2.needsUpdate = true;
+  });
+
+  // CAMERA - zoom in with scroll
+  const bz = DEVICE.camZ - chatScrollProgress * 100;
+  camera.position.x += (mouseX * DEVICE.mouseAmpX - camera.position.x) * 0.02;
+  camera.position.y += (mouseY * DEVICE.mouseAmpY - camera.position.y) * 0.02;
+  camera.position.z += (bz - camera.position.z) * 0.02;
+  camera.lookAt(0, 0, 0);
+
+  renderer.render(scene, camera);
+}
+
+animate();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
